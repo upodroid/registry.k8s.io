@@ -75,6 +75,7 @@ func trackPullEvent(r *http.Request, traceID, backend string, ipInfo *cloudcidrs
 		"cloud", cloud,
 		"region", region,
 		"backend", backend,
+		"asn", r.Header.Get("X-Client-ASN"),
 		"traceID", traceID,
 		"service", os.Getenv("K_SERVICE"),
 	)
