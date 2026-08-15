@@ -58,11 +58,21 @@ func main() {
 		DefaultAWSBaseURL:         getEnv("DEFAULT_AWS_BASE_URL", "https://d1be1w964nk82h.cloudfront.net"),
 	}
 
+	// snapshot the repositories that exist upstream so we can 404 requests for
+	// images that don't exist instead of redirecting clients to a 404
+	// this is best effort: if we can't list them we serve without the check
+	knownRepositories, err := app.ListUpstreamRepositories(registryConfig)
+	if err != nil {
+		klog.ErrorS(err, "failed to list upstream repositories, serving without unknown image filtering")
+	} else {
+		klog.InfoS("listed upstream repositories", "count", len(knownRepositories))
+	}
+
 	// configure server with reasonable timeout
 	// we only serve redirects, 10s should be sufficient
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           app.MakeHandler(registryConfig),
+		Handler:           app.MakeHandler(registryConfig, knownRepositories),
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 2 * time.Second,
 	}

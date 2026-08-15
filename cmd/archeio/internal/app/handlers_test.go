@@ -36,7 +36,7 @@ func TestMakeHandler(t *testing.T) {
 		PrivacyURL:               "https://www.linuxfoundation.org/privacy-policy/",
 		// SignatureUpstreamEndpoint intentionally unset to test fallback behavior
 	}
-	handler := MakeHandler(registryConfig)
+	handler := MakeHandler(registryConfig, nil)
 	testCases := []struct {
 		Name           string
 		Request        *http.Request
@@ -270,7 +270,10 @@ func TestMakeV2Handler(t *testing.T) {
 			"https://prod-registry-k8s-io-us-west-1.s3.dualstack.us-west-1.amazonaws.com/containers/images/sha256:da86e6ba6ca197bf6bc5e9d900febd906b133eaa4750e6bed647b0fbe50ed43e":           true,
 		},
 	}
-	handler := makeV2Handler(registryConfig, &blobs)
+	handler := makeV2Handler(registryConfig, &blobs, map[string]struct{}{
+		"pause":      {},
+		"kubernetes": {},
+	})
 	testCases := []struct {
 		Name           string
 		Request        *http.Request
@@ -366,6 +369,12 @@ func TestMakeV2Handler(t *testing.T) {
 			ExpectedStatus: http.StatusTemporaryRedirect,
 			ExpectedURL:    "https://k8s.gcr.io/v2/pause/tags/list",
 		},
+		{
+			Name:           "Return 404s for non existent images",
+			Request:        httptest.NewRequest("GET", "http://localhost:8080/v2/foobar/tags/list", nil),
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedURL:    "",
+		},
 	}
 	for i := range testCases {
 		tc := testCases[i]
@@ -412,7 +421,7 @@ func TestTraceIDCorrelation(t *testing.T) {
 			"https://prod-registry-k8s-io-eu-west-3.s3.dualstack.eu-west-3.amazonaws.com/containers/images/sha256:da86e6ba6ca197bf6bc5e9d900febd906b133eaa4750e6bed647b0fbe50ed43e": true,
 		},
 	}
-	handler := makeV2Handler(registryConfig, &blobs)
+	handler := makeV2Handler(registryConfig, &blobs, nil)
 
 	const wantTraceID = "4bf92f3577b34da6a3ce929d0e0e4736"
 	testCases := []struct {
@@ -496,7 +505,7 @@ func TestPullSessionCorrelation(t *testing.T) {
 	registryConfig := RegistryConfig{
 		UpstreamRegistryEndpoint: "https://k8s.gcr.io",
 	}
-	handler := MakeHandler(registryConfig)
+	handler := MakeHandler(registryConfig, nil)
 
 	do := func(method, target, authorization string) *http.Response {
 		r := httptest.NewRequest(method, target, nil)
