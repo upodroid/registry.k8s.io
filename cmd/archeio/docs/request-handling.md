@@ -10,6 +10,7 @@ Requests to archeio follows the following flow:
    - If it's the version check (`/v2/` or `/v2`) without a `Bearer` token: 401 error with a `WWW-Authenticate` challenge pointing at `/token`
    - If it's the version check with a `Bearer` token: 200 OK
    - If it's a non-standard API call (`/v2/_catalog`): 404 error
+   - If the image's top level repository did not exist upstream at startup: 404 error (see [Known Repositories](#known-repositories) below)
    - If it's a cosign signature/attestation manifest request (`sha256-*.sig` or `sha256-*.att`) and `SIGNATURE_UPSTREAM_ENDPOINT` is set: Redirect to Signature Upstream
    - If it's a manifest request: Redirect to Upstream Registry
    - If it's from a known GCP IP: Redirect to Upstream Registry
@@ -20,6 +21,24 @@ See also: OCI Distribution [Specification](https://github.com/opencontainers/dis
 
 Currently the `Upstream Registry` is a region specific Artifact Registry backend.
 The `Signature Upstream` is an optional single canonical registry (configured via `SIGNATURE_UPSTREAM_ENDPOINT`) used to serve cosign signatures and attestations from one location, avoiding the need to replicate them across all regions.
+
+## Known Repositories
+
+At startup archeio lists the repositories available upstream from
+`${UPSTREAM_REGISTRY_ENDPOINT}/v2/${UPSTREAM_REGISTRY_PATH}/tags/list`, using the
+`child` field GCR / Artifact Registry add to the tags list response, e.g.
+<https://us-central1-docker.pkg.dev/v2/k8s-artifacts-prod/images/tags/list>.
+
+Requests for an image whose first name segment is not in that list are served a
+`404` directly, instead of redirecting the client to an upstream `404`.
+
+Notes:
+
+- Only immediate children are listed, so nested images such as
+  `sig-storage/csi-provisioner` are matched by their `sig-storage` parent.
+- The list is a startup snapshot, it is not refreshed. Images added upstream
+  afterwards require a restart (Cloud Run revisions are short lived).
+- If the listing fails archeio serves without this check rather than not serving.
 
 ## Trace Correlation
 

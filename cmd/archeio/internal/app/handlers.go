@@ -54,10 +54,14 @@ const (
 // upstream registry should be the url to the primary registry
 // archeio is fronting.
 //
+// knownRepositories is the set of top level repositories available upstream,
+// see ListUpstreamRepositories. Requests for anything else are served 404.
+// Pass nil / empty to serve without this check.
+//
 // Exact behavior should be documented in docs/request-handling.md
-func MakeHandler(rc RegistryConfig) http.Handler {
+func MakeHandler(rc RegistryConfig, knownRepositories map[string]struct{}) http.Handler {
 	blobs := newCachedBlobChecker()
-	doV2 := makeV2Handler(rc, blobs)
+	doV2 := makeV2Handler(rc, blobs, knownRepositories)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// only allow GET, HEAD
 		// this is all a client needs to pull images
@@ -85,7 +89,7 @@ func MakeHandler(rc RegistryConfig) http.Handler {
 	})
 }
 
-func makeV2Handler(rc RegistryConfig, blobs blobChecker) func(w http.ResponseWriter, r *http.Request) {
+func makeV2Handler(rc RegistryConfig, blobs blobChecker, knownRepositories map[string]struct{}) func(w http.ResponseWriter, r *http.Request) {
 	// matches blob requests, captures the requested blob hash
 	// https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pull
 	// Blobs are at `/v2/<name>/blobs/<digest>`
@@ -147,6 +151,17 @@ func makeV2Handler(rc RegistryConfig, blobs blobChecker) func(w http.ResponseWri
 		if rPath == "/v2/_catalog" {
 			http.Error(w, "_catalog is not supported", http.StatusNotFound)
 			return
+		}
+
+		// fail fast for images that did not exist upstream at startup instead
+		// of sending the client on a redirect that can only end in a 404
+		if len(knownRepositories) > 0 {
+			repository := topLevelRepository(rPath)
+			if _, known := knownRepositories[repository]; !known {
+				klog.V(2).InfoS("serving 404 for unknown repository", "path", rPath, "repository", repository, "traceID", traceID)
+				http.Error(w, "repository does not exist", http.StatusNotFound)
+				return
+			}
 		}
 
 		// resolve the client IP and cloud/region info once, used for backend
