@@ -10,6 +10,7 @@ Requests to archeio follows the following flow:
    - If it's the version check (`/v2/` or `/v2`) without a `Bearer` token: 401 error with a `WWW-Authenticate` challenge pointing at `/token`
    - If it's the version check with a `Bearer` token: 200 OK
    - If it's a non-standard API call (`/v2/_catalog`): 404 error
+   - If it's the root repository listing (`/v2/tags/list`): Redirect to Upstream Registry
    - If the image's top level repository did not exist upstream at startup: 404 error (see [Known Repositories](#known-repositories) below)
    - If it's a cosign signature/attestation manifest request (`sha256-*.sig` or `sha256-*.att`) and `SIGNATURE_UPSTREAM_ENDPOINT` is set: Redirect to Signature Upstream
    - If it's a manifest request: Redirect to Upstream Registry
@@ -36,6 +37,7 @@ Notes:
 
 - Only immediate children are listed, so nested images such as
   `sig-storage/csi-provisioner` are matched by their `sig-storage` parent.
+- `/v2/tags/list` itself is exempt, clients can always list the root directly.
 - The list is a startup snapshot, it is not refreshed. Images added upstream
   afterwards require a restart (Cloud Run revisions are short lived).
 - If the listing fails archeio serves without this check rather than not serving.

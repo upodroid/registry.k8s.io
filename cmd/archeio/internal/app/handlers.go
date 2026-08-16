@@ -47,6 +47,8 @@ const (
 	// joined back to archeio's logs. Backends must be configured to exclude
 	// this parameter from cache keys.
 	traceIDQueryParam = "rid"
+	// rootTagsListPath lists the repositories themselves, not an image
+	rootTagsListPath = "/v2/tags/list"
 )
 
 // MakeHandler returns the root archeio HTTP handler
@@ -155,7 +157,7 @@ func makeV2Handler(rc RegistryConfig, blobs blobChecker, knownRepositories map[s
 
 		// fail fast for images that did not exist upstream at startup instead
 		// of sending the client on a redirect that can only end in a 404
-		if len(knownRepositories) > 0 {
+		if len(knownRepositories) > 0 && rPath != rootTagsListPath {
 			repository := topLevelRepository(rPath)
 			if _, known := knownRepositories[repository]; !known {
 				klog.V(2).InfoS("serving 404 for unknown repository", "path", rPath, "repository", repository, "traceID", traceID)

@@ -375,6 +375,12 @@ func TestMakeV2Handler(t *testing.T) {
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedURL:    "",
 		},
+		{
+			Name:           "Root tag list redirects to upstream",
+			Request:        httptest.NewRequest("GET", "http://localhost:8080/v2/tags/list", nil),
+			ExpectedStatus: http.StatusTemporaryRedirect,
+			ExpectedURL:    "https://k8s.gcr.io/v2/tags/list",
+		},
 	}
 	for i := range testCases {
 		tc := testCases[i]

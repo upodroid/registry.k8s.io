@@ -165,6 +165,12 @@ func TestV2HandlerUnknownRepository(t *testing.T) {
 			Target:         "http://localhost:8080/v2/",
 			ExpectedStatus: http.StatusUnauthorized,
 		},
+		{
+			// listing the repositories themselves is not an image request
+			Name:           "root tags list",
+			Target:         "http://localhost:8080/v2/tags/list",
+			ExpectedStatus: http.StatusTemporaryRedirect,
+		},
 	}
 	for i := range testCases {
 		tc := testCases[i]
