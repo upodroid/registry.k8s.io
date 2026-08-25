@@ -61,6 +61,12 @@ func TestIntegrationCachedBlobChecker(t *testing.T) {
 			BlobURL:      "http://bogus.k8s.io/foo",
 			ExpectExists: false,
 		},
+		// control character makes http.NewRequest fail URL parsing
+		{
+			Name:         "unparseable blob URL",
+			BlobURL:      "http://bogus.k8s.io/foo\nbar",
+			ExpectExists: false,
+		},
 	}
 	// run test cases in parallel and then serial
 	// this populates the cache on the first run while doing parallel testing
