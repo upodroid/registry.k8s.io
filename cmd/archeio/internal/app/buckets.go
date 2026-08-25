@@ -189,7 +189,13 @@ func (c *cachedBlobChecker) BlobExists(blobURL, traceID string) bool {
 	}
 	// carry the trace ID on the probe so backend access logs can be
 	// correlated, the bare blobURL remains the cache key
-	r, err := client.Head(withTraceID(blobURL, traceID))
+	req, err := http.NewRequest(http.MethodHead, withTraceID(blobURL, traceID), nil)
+	if err != nil {
+		klog.V(3).InfoS("failed to create remote blob check request", "url", blobURL, "err", err, "traceID", traceID)
+		return false
+	}
+	req.Header.Set("User-Agent", "archeio/1.0")
+	r, err := client.Do(req)
 	// fallback to assuming blob is unavailable on errors
 	if err != nil {
 		klog.V(3).InfoS("failed to check remote blob", "url", blobURL, "err", err, "traceID", traceID)
